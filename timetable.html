@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Student Timetable Designer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f4f0; color: #1a1a1a; min-height: 100vh; }
+
+  header { background: #534AB7; color: white; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; font-weight: 500; }
+  header span { font-size: 13px; opacity: 0.75; margin-left: auto; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+
+  .top-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .template-select { padding: 7px 12px; border: 1px solid #d0cfe8; border-radius: 8px; font-size: 13px; font-family: inherit; background: white; color: #1a1a1a; cursor: pointer; }
+  .top-btn { padding: 7px 14px; border: 1px solid #d0cfe8; border-radius: 8px; font-size: 13px; cursor: pointer; background: white; color: #1a1a1a; font-family: inherit; transition: background 0.1s; }
+  .top-btn:hover { background: #f0eff8; }
+  .top-btn.primary { background: #534AB7; color: white; border-color: #534AB7; }
+  .top-btn.primary:hover { background: #3C3489; }
+  .top-btn.danger { color: #A32D2D; border-color: #F09595; }
+  .top-btn.danger:hover { background: #FCEBEB; }
+
+  .hint { font-size: 12px; color: #666; margin-bottom: 10px; padding: 7px 12px; background: #EEEDFE; border-radius: 8px; border-left: 3px solid #534AB7; color: #3C3489; }
+
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+  .subject-pill { padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; border: 2px solid transparent; font-weight: 500; transition: transform 0.1s; font-family: inherit; }
+  .subject-pill:hover { transform: scale(1.05); }
+  .subject-pill.active { border-color: #26215C !important; }
+  .add-subject { padding: 6px 14px; border: 1px dashed #aaa; border-radius: 20px; font-size: 13px; cursor: pointer; background: transparent; color: #666; font-family: inherit; }
+  .add-subject:hover { background: #f0f0f0; }
+
+  .grid-container { border: 1px solid #d0cfe8; border-radius: 12px; overflow: auto; background: white; }
+  .grid { display: grid; grid-template-columns: 56px repeat(7, 1fr); min-width: 620px; }
+  .header-cell { padding: 9px 4px; text-align: center; font-size: 12px; font-weight: 500; color: #666; background: #f8f8fb; border-bottom: 1px solid #e8e7f4; border-right: 1px solid #e8e7f4; cursor: pointer; user-select: none; }
+  .header-cell.weekend { color: #3C3489; background: #EEEDFE; }
+  .header-cell.day-off { color: #A32D2D; background: #FCEBEB; text-decoration: line-through; }
+  .header-cell.corner { cursor: default; background: #f8f8fb; }
+  .time-cell { padding: 0 6px; text-align: center; font-size: 11px; color: #999; background: #f8f8fb; border-bottom: 1px solid #e8e7f4; border-right: 1px solid #e8e7f4; display: flex; align-items: center; justify-content: center; min-height: 46px; }
+  .slot { min-height: 46px; border-bottom: 1px solid #e8e7f4; border-right: 1px solid #e8e7f4; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; transition: opacity 0.1s; position: relative; }
+  .slot:hover { opacity: 0.8; }
+  .slot.empty { background: white; }
+  .slot.empty.weekend-col { background: #FAFAFE; }
+  .slot.empty:hover { background: #f5f4fc; }
+  .slot.disabled { background: #f5f4f0 !important; cursor: not-allowed; opacity: 0.35; }
+  .slot-label { text-align: center; line-height: 1.3; padding: 4px 6px; font-size: 11px; }
+  .remove-x { position: absolute; top: 3px; right: 5px; font-size: 10px; opacity: 0.5; }
+
+  .info-bar { margin-top: 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .info-text { font-size: 12px; color: #888; }
+  .clear-btn { padding: 5px 14px; font-size: 12px; border: 1px solid #d0cfe8; border-radius: 8px; background: white; color: #888; cursor: pointer; margin-left: auto; font-family: inherit; }
+  .clear-btn:hover { background: #f5f4f0; }
+  .print-btn { padding: 5px 14px; font-size: 12px; border: 1px solid #534AB7; border-radius: 8px; background: white; color: #534AB7; cursor: pointer; font-family: inherit; }
+  .print-btn:hover { background: #EEEDFE; }
+
+  /* Modals */
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
+  .modal.open { display: flex; }
+  .modal-box { background: white; border-radius: 14px; padding: 22px; width: 300px; border: 1px solid #e0dff0; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
+  .modal-box.wide { width: 350px; }
+  .modal-title { font-size: 15px; font-weight: 500; margin-bottom: 14px; color: #1a1a1a; }
+  .modal-label { font-size: 12px; color: #888; margin-bottom: 4px; margin-top: 10px; }
+  .modal-input { width: 100%; padding: 8px 12px; border: 1px solid #d0cfe8; border-radius: 8px; font-size: 14px; font-family: inherit; background: white; color: #1a1a1a; }
+  .modal-input:focus { outline: 2px solid #534AB7; outline-offset: 1px; }
+  .color-row { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+  .color-dot { width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.1s; }
+  .color-dot:hover { transform: scale(1.1); }
+  .color-dot.picked { border-color: #26215C !important; }
+  .modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .modal-btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; border: 1px solid #d0cfe8; background: white; color: #1a1a1a; font-family: inherit; }
+  .modal-btn:hover { background: #f5f4f0; }
+  .modal-btn.primary { background: #534AB7; color: white; border-color: #534AB7; }
+  .modal-btn.primary:hover { background: #3C3489; }
+  .modal-btn.danger { color: #A32D2D; border-color: #F09595; }
+  .modal-btn.danger:hover { background: #FCEBEB; }
+  .time-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .day-toggles { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .day-toggle { padding: 5px 10px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1.5px solid; font-family: inherit; font-weight: 500; transition: background 0.1s; }
+
+  @media print {
+    header, .top-bar, .toolbar, .hint, .info-bar, .modal { display: none !important; }
+    body { background: white; }
+    .container { padding: 0; max-width: 100%; }
+    .grid-container { border: 1px solid #ccc; border-radius: 0; }
+  }
+  @media (max-width: 600px) {
+    .top-bar { gap: 6px; }
+    .top-btn { padding: 6px 10px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+  <h1>Student Timetable Designer</h1>
+  <span>Click a day header to toggle it off · Double-click a subject to edit it</span>
+</header>
+
+<div class="container">
+  <div class="top-bar">
+    <select class="template-select" id="template-select" onchange="loadTemplate(this.value)"></select>
+    <button class="top-btn" onclick="openTemplateModal()">✏️ Edit template</button>
+    <button class="top-btn" onclick="openSaveModal()">💾 Save as new</button>
+    <button class="top-btn danger" onclick="confirmDeleteTemplate()">🗑 Delete</button>
+    <button class="top-btn primary" onclick="openSubjectModal()">+ Subject</button>
+    <button class="print-btn" onclick="window.print()">🖨 Print</button>
+  </div>
+
+  <div class="hint">💡 Select a subject below, then click any cell to fill it. Click a filled cell to remove it. Click a day header to mark it as a day off.</div>
+
+  <div class="toolbar" id="toolbar"></div>
+
+  <div class="grid-container">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="info-bar">
+    <span class="info-text" id="slot-count">0 slots filled</span>
+    <span class="info-text">Double-click a subject pill to edit or remove it</span>
+    <button class="clear-btn" onclick="clearAll()">Clear all slots</button>
+  </div>
+</div>
+
+<!-- Subject modal -->
+<div class="modal" id="subj-modal">
+  <div class="modal-box">
+    <div class="modal-title" id="subj-modal-title">Add subject</div>
+    <div class="modal-label">Name</div>
+    <input class="modal-input" id="subj-name" placeholder="e.g. Maths" maxlength="20" />
+    <div class="modal-label">Colour</div>
+    <div class="color-row" id="color-row"></div>
+    <div class="modal-btns">
+      <button class="modal-btn danger" id="delete-subj-btn" onclick="deleteSubject()" style="display:none; margin-right:auto">Remove</button>
+      <button class="modal-btn" onclick="closeSubjModal()">Cancel</button>
+      <button class="modal-btn primary" onclick="saveSubject()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Template edit modal -->
+<div class="modal" id="template-modal">
+  <div class="modal-box wide">
+    <div class="modal-title">Edit template</div>
+    <div class="modal-label">Template name</div>
+    <input class="modal-input" id="tmpl-name" placeholder="e.g. My School Schedule" maxlength="30" />
+    <div class="modal-label" style="margin-top:14px">Hours</div>
+    <div class="time-grid" style="margin-top:6px">
+      <div>
+        <div class="modal-label">Start</div>
+        <select class="modal-input" id="tmpl-start"></select>
+      </div>
+      <div>
+        <div class="modal-label">End</div>
+        <select class="modal-input" id="tmpl-end"></select>
+      </div>
+    </div>
+    <div class="modal-label" style="margin-top:14px">Days off (click to toggle)</div>
+    <div class="day-toggles" id="day-toggles"></div>
+    <div class="modal-btns">
+      <button class="modal-btn" onclick="closeTemplateModal()">Cancel</button>
+      <button class="modal-btn primary" onclick="saveTemplate()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Save as new modal -->
+<div class="modal" id="save-modal">
+  <div class="modal-box">
+    <div class="modal-title">Save as new template</div>
+    <div class="modal-label">Template name</div>
+    <input class="modal-input" id="new-tmpl-name" placeholder="e.g. Term 2 Schedule" maxlength="30" />
+    <div class="modal-btns">
+      <button class="modal-btn" onclick="closeSaveModal()">Cancel</button>
+      <button class="modal-btn primary" onclick="saveAsNew()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ALL_HOURS = Array.from({length:17}, (_,i) => `${String(i+6).padStart(2,'0')}:00`);
+const ALL_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const WEEKEND_IDX = [5,6];
+const COLORS = [
+  {bg:'#EEEDFE',text:'#3C3489'},
+  {bg:'#E1F5EE',text:'#085041'},
+  {bg:'#FAECE7',text:'#712B13'},
+  {bg:'#EAF3DE',text:'#27500A'},
+  {bg:'#FAEEDA',text:'#633806'},
+  {bg:'#E6F1FB',text:'#0C447C'},
+  {bg:'#FBEAF0',text:'#72243E'},
+  {bg:'#F1EFE8',text:'#444441'},
+  {bg:'#FCF3DC',text:'#7A5800'},
+  {bg:'#DCF3FC',text:'#004B5C'},
+];
+
+let templates = [
+  { id:'t1', name:'Standard School Week', startHour:7, endHour:15, daysOff:[5,6], timetable:{}, subjects:[
+    {name:'Maths',...COLORS[0]},{name:'Science',...COLORS[1]},{name:'English',...COLORS[2]},{name:'History',...COLORS[3]},{name:'PE',...COLORS[4]}
+  ]},
+  { id:'t2', name:'University Schedule', startHour:8, endHour:18, daysOff:[6], timetable:{}, subjects:[
+    {name:'Lecture',...COLORS[0]},{name:'Tutorial',...COLORS[1]},{name:'Lab',...COLORS[2]},{name:'Study',...COLORS[5]},{name:'Sport',...COLORS[4]}
+  ]},
+  { id:'t3', name:'Weekend Study Plan', startHour:9, endHour:17, daysOff:[0,1,2,3,4], timetable:{}, subjects:[
+    {name:'Revision',...COLORS[0]},{name:'Practice',...COLORS[2]},{name:'Reading',...COLORS[5]},{name:'Break',...COLORS[3]}
+  ]},
+];
+
+let currentId = 't1';
+let selected = 0;
+let pickedColor = 0;
+let editingSubjIdx = -1;
+let editingDaysOff = [];
+
+function cur() { return templates.find(t => t.id === currentId); }
+
+function getTimes(t) {
+  const times = [];
+  for (let h = t.startHour; h < t.endHour; h++) times.push(`${String(h).padStart(2,'0')}:00`);
+  return times;
+}
+
+function getActiveDays(t) {
+  return ALL_DAYS.map((d,i) => ({name:d, idx:i, active: !t.daysOff.includes(i)}));
+}
+
+function renderTemplateSelect() {
+  const sel = document.getElementById('template-select');
+  sel.innerHTML = '';
+  templates.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t.id; o.textContent = t.name;
+    if (t.id === currentId) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function loadTemplate(id) { currentId = id; selected = 0; renderAll(); }
+
+function renderAll() { renderTemplateSelect(); renderToolbar(); renderGrid(); }
+
+function renderToolbar() {
+  const t = cur();
+  const tb = document.getElementById('toolbar');
+  tb.innerHTML = '';
+  t.subjects.forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'subject-pill' + (i === selected ? ' active' : '');
+    btn.style.background = s.bg; btn.style.color = s.text;
+    btn.textContent = s.name;
+    btn.title = 'Double-click to edit';
+    btn.onclick = () => { selected = i; renderToolbar(); };
+    btn.ondblclick = () => openEditSubject(i);
+    tb.appendChild(btn);
+  });
+  const add = document.createElement('button');
+  add.className = 'add-subject'; add.textContent = '+ Add subject';
+  add.onclick = openSubjectModal;
+  tb.appendChild(add);
+}
+
+function renderGrid() {
+  const t = cur();
+  const times = getTimes(t);
+  const activeDays = getActiveDays(t);
+  const grid = document.getElementById('grid');
+  grid.style.gridTemplateColumns = `56px repeat(7, 1fr)`;
+  grid.innerHTML = '';
+
+  const corner = document.createElement('div');
+  corner.className = 'header-cell corner';
+  grid.appendChild(corner);
+
+  activeDays.forEach((d) => {
+    const h = document.createElement('div');
+    const isWeekend = WEEKEND_IDX.includes(d.idx);
+    const isDayOff = !d.active;
+    h.className = 'header-cell' + (isDayOff ? ' day-off' : isWeekend ? ' weekend' : '');
+    h.textContent = d.name + (isDayOff ? ' ✕' : '');
+    h.title = isDayOff ? 'Day off — click to enable' : 'Click to mark as day off';
+    h.onclick = () => toggleDayOff(d.idx);
+    grid.appendChild(h);
+  });
+
+  times.forEach((time, ti) => {
+    const tc = document.createElement('div');
+    tc.className = 'time-cell'; tc.textContent = time;
+    grid.appendChild(tc);
+    activeDays.forEach((d, di) => {
+      const key = `${ti}-${di}`;
+      const slot = document.createElement('div');
+      slot.className = 'slot';
+      if (!d.active) {
+        slot.classList.add('disabled');
+        grid.appendChild(slot);
+        return;
+      }
+      const isWeekend = WEEKEND_IDX.includes(d.idx);
+      const subjIdx = t.timetable[key];
+      if (subjIdx !== undefined && t.subjects[subjIdx]) {
+        const s = t.subjects[subjIdx];
+        slot.style.background = s.bg;
+        slot.innerHTML = `<div class="slot-label" style="color:${s.text}">${s.name}</div><span class="remove-x" style="color:${s.text}">✕</span>`;
+      } else {
+        slot.classList.add('empty');
+        if (isWeekend) slot.classList.add('weekend-col');
+      }
+      slot.onclick = () => toggleSlot(key);
+      grid.appendChild(slot);
+    });
+  });
+  updateCount();
+}
+
+function toggleDayOff(dayIdx) {
+  const t = cur();
+  const idx = t.daysOff.indexOf(dayIdx);
+  if (idx >= 0) t.daysOff.splice(idx, 1); else t.daysOff.push(dayIdx);
+  renderGrid();
+}
+
+function toggleSlot(key) {
+  const t = cur();
+  if (t.timetable[key] !== undefined) delete t.timetable[key];
+  else t.timetable[key] = selected;
+  renderGrid();
+}
+
+function updateCount() {
+  const n = Object.keys(cur().timetable).length;
+  document.getElementById('slot-count').textContent = `${n} slot${n !== 1 ? 's' : ''} filled`;
+}
+
+function clearAll() { if (confirm('Clear all slots?')) { cur().timetable = {}; renderGrid(); } }
+
+/* Subject modal */
+function openSubjectModal() {
+  editingSubjIdx = -1;
+  pickedColor = cur().subjects.length % COLORS.length;
+  document.getElementById('subj-name').value = '';
+  document.getElementById('subj-modal-title').textContent = 'Add subject';
+  document.getElementById('delete-subj-btn').style.display = 'none';
+  renderColorRow();
+  document.getElementById('subj-modal').classList.add('open');
+  setTimeout(() => document.getElementById('subj-name').focus(), 100);
+}
+
+function openEditSubject(i) {
+  editingSubjIdx = i;
+  const s = cur().subjects[i];
+  pickedColor = COLORS.findIndex(c => c.bg === s.bg);
+  if (pickedColor < 0) pickedColor = 0;
+  document.getElementById('subj-name').value = s.name;
+  document.getElementById('subj-modal-title').textContent = 'Edit subject';
+  document.getElementById('delete-subj-btn').style.display = 'inline-block';
+  renderColorRow();
+  document.getElementById('subj-modal').classList.add('open');
+  setTimeout(() => document.getElementById('subj-name').focus(), 100);
+}
+
+function closeSubjModal() { document.getElementById('subj-modal').classList.remove('open'); }
+
+function renderColorRow() {
+  const row = document.getElementById('color-row');
+  row.innerHTML = '';
+  COLORS.forEach((c, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'color-dot' + (i === pickedColor ? ' picked' : '');
+    dot.style.background = c.bg;
+    dot.style.borderColor = i === pickedColor ? c.text : 'transparent';
+    dot.onclick = () => { pickedColor = i; renderColorRow(); };
+    row.appendChild(dot);
+  });
+}
+
+function saveSubject() {
+  const name = document.getElementById('subj-name').value.trim();
+  if (!name) return;
+  const t = cur();
+  if (editingSubjIdx >= 0) {
+    t.subjects[editingSubjIdx] = {name, ...COLORS[pickedColor]};
+  } else {
+    t.subjects.push({name, ...COLORS[pickedColor]});
+    selected = t.subjects.length - 1;
+  }
+  closeSubjModal();
+  renderAll();
+}
+
+function deleteSubject() {
+  if (editingSubjIdx < 0) return;
+  if (!confirm('Remove this subject?')) return;
+  const t = cur();
+  t.subjects.splice(editingSubjIdx, 1);
+  Object.keys(t.timetable).forEach(k => { if (t.timetable[k] === editingSubjIdx) delete t.timetable[k]; });
+  selected = 0;
+  closeSubjModal();
+  renderAll();
+}
+
+document.getElementById('subj-name').addEventListener('keydown', e => { if (e.key === 'Enter') saveSubject(); });
+
+/* Template modal */
+function openTemplateModal() {
+  const t = cur();
+  document.getElementById('tmpl-name').value = t.name;
+  const startSel = document.getElementById('tmpl-start');
+  const endSel = document.getElementById('tmpl-end');
+  startSel.innerHTML = ''; endSel.innerHTML = '';
+  ALL_HOURS.forEach(h => {
+    const hour = parseInt(h);
+    const o1 = document.createElement('option'); o1.value = hour; o1.textContent = h; if (hour === t.startHour) o1.selected = true;
+    const o2 = document.createElement('option'); o2.value = hour; o2.textContent = h; if (hour === t.endHour) o2.selected = true;
+    startSel.appendChild(o1); endSel.appendChild(o2);
+  });
+  editingDaysOff = [...t.daysOff];
+  renderDayToggles();
+  document.getElementById('template-modal').classList.add('open');
+}
+
+function renderDayToggles() {
+  const row = document.getElementById('day-toggles');
+  row.innerHTML = '';
+  ALL_DAYS.forEach((d, i) => {
+    const isOff = editingDaysOff.includes(i);
+    const btn = document.createElement('button');
+    btn.className = 'day-toggle';
+    btn.style.cssText = `background:${isOff?'#FCEBEB':'#EEEDFE'};color:${isOff?'#A32D2D':'#3C3489'};border-color:${isOff?'#F09595':'#AFA9EC'};`;
+    btn.textContent = d + (isOff ? ' ✕' : ' ✓');
+    btn.onclick = () => {
+      const idx = editingDaysOff.indexOf(i);
+      if (idx >= 0) editingDaysOff.splice(idx,1); else editingDaysOff.push(i);
+      renderDayToggles();
+    };
+    row.appendChild(btn);
+  });
+}
+
+function closeTemplateModal() { document.getElementById('template-modal').classList.remove('open'); }
+
+function saveTemplate() {
+  const name = document.getElementById('tmpl-name').value.trim();
+  const startHour = parseInt(document.getElementById('tmpl-start').value);
+  const endHour = parseInt(document.getElementById('tmpl-end').value);
+  if (!name) { alert('Please enter a template name.'); return; }
+  if (startHour >= endHour) { alert('Start time must be before end time.'); return; }
+  const t = cur();
+  t.name = name; t.startHour = startHour; t.endHour = endHour; t.daysOff = [...editingDaysOff];
+  closeTemplateModal();
+  renderAll();
+}
+
+/* Save as new */
+function openSaveModal() {
+  document.getElementById('new-tmpl-name').value = cur().name + ' (copy)';
+  document.getElementById('save-modal').classList.add('open');
+  setTimeout(() => document.getElementById('new-tmpl-name').focus(), 100);
+}
+
+function closeSaveModal() { document.getElementById('save-modal').classList.remove('open'); }
+
+function saveAsNew() {
+  const name = document.getElementById('new-tmpl-name').value.trim();
+  if (!name) return;
+  const newT = JSON.parse(JSON.stringify(cur()));
+  newT.id = 'T' + Date.now();
+  newT.name = name;
+  templates.push(newT);
+  currentId = newT.id;
+  closeSaveModal();
+  renderAll();
+}
+
+function confirmDeleteTemplate() {
+  if (templates.length <= 1) { alert('You need at least one template.'); return; }
+  if (!confirm(`Delete "${cur().name}"? This cannot be undone.`)) return;
+  templates = templates.filter(t => t.id !== currentId);
+  currentId = templates[0].id;
+  renderAll();
+}
+
+/* Close modals on backdrop click */
+document.querySelectorAll('.modal').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+renderAll();
+</script>
+</body>
+</html>
